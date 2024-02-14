@@ -39,11 +39,16 @@ class SelectWorkoutScreen(Screen):
         self.add_widget(layout)
 
     def go_to_workout(self, instance):
+        if instance.text == 'Dumbbell Shoulder Press':
+            self.manager.get_screen('workout_detail').current_workout = instance.text
+        self.manager.current = 'workout_detail'
         # Switch to the workout detail screen with the selected workout
         # You might want to pass the workout name to the detail screen
         self.manager.current = 'workout_detail'
 
+
 class WorkoutDetailScreen(Screen):
+    current_workout = None  # Attribute to keep track of the current workout
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.layout = BoxLayout(orientation='vertical')
@@ -89,11 +94,59 @@ class WorkoutDetailScreen(Screen):
         if frame is not None:
             results = self.pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             if results.pose_landmarks:
+                # Draw the pose annotations on the frame
+                annotated_image = frame.copy()
                 mp.solutions.drawing_utils.draw_landmarks(
-                    frame, results.pose_landmarks, self.mp_pose.POSE_CONNECTIONS)
-            texture = self.frame_to_texture(frame)
-            self.camera.texture = texture
-    
+                    annotated_image, 
+                    results.pose_landmarks, 
+                    self.mp_pose.POSE_CONNECTIONS
+                )
+                
+                # Convert landmarks to a more usable structure
+                landmarks = [{'x': lm.x, 'y': lm.y, 'z': lm.z} for lm in results.pose_landmarks.landmark]
+                
+                # Check which workout is selected and analyze accordingly
+                if self.current_workout == 'Dumbbell Shoulder Press':
+                    critique = self.analyze_shoulder_press(landmarks)
+                else:
+                    critique = "Select a workout to analyze your form."
+                
+                self.critiques_label.text = critique
+                
+                # Update the texture with the annotated image
+                texture = self.frame_to_texture(annotated_image)
+                self.camera.texture = texture
+
+    def analyze_shoulder_press(self, landmarks):
+        feedback = ""
+
+        # Check vertical alignment of wrists over shoulders at the top of the press
+        if not self.is_aligned_vertically(landmarks[12], landmarks[16]) or not self.is_aligned_vertically(landmarks[11], landmarks[15]):
+            feedback += "Align your wrists directly over your shoulders.\n"
+
+        # Check if arms are fully extended without locking the elbows
+        right_arm_angle = self.calculate_angle(landmarks[11], landmarks[13], landmarks[15])
+        left_arm_angle = self.calculate_angle(landmarks[12], landmarks[14], landmarks[16])
+        if right_arm_angle < 170 or right_arm_angle > 190:
+            feedback += "Fully extend your right arm at the top of the press.\n"
+        if left_arm_angle < 170 or left_arm_angle > 190:
+            feedback += "Fully extend your left arm at the top of the press.\n"
+
+        # Check torso position
+        if not self.is_torso_upright(landmarks[23], landmarks[11]) or not self.is_torso_upright(landmarks[24], landmarks[12]):
+            feedback += "Keep your torso upright and avoid arching your back.\n"
+
+        return feedback or "Good form!"
+
+    def is_aligned_vertically(self, shoulder, wrist):
+        # Vertical alignment means the x-coordinates should be very close at the top of the press
+        # You might need to adjust the threshold based on how sensitive you want the check to be
+        return abs(shoulder['x'] - wrist['x']) < 0.5  # Adjust this threshold as needed
+
+    def is_torso_upright(self, hip, shoulder):
+        # Upright torso means the shoulders should not dip and hips should not rise
+        # A change in the y-coordinate would indicate leaning to one side or arching the back
+        return abs(hip['y'] - shoulder['y']) < 0.5  # Adjust this threshold as needed
     def frame_from_camera(self):
         # Access the texture of the Camera widget
         texture = self.camera.texture
@@ -132,6 +185,20 @@ class WorkoutDetailScreen(Screen):
 
     def go_back(self, instance):
         self.manager.current = 'select_workout'
+
+
+    def calculate_angle(self, a, b, c):
+        # Here you can convert the landmark data to your required format, if necessary
+        # shoulder, elbow, and wrist would be dictionaries with 'x', 'y', 'z' keys
+        a = np.array([a['x'], a['y']])
+        b = np.array([b['x'], b['y']])
+        c = np.array([c['x'], c['y']])
+        ba = a - b
+        bc = c - b
+        cosine_angle = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc))
+        angle = np.arccos(cosine_angle)
+        return np.degrees(angle)
+
 
 class GymFormApp(App):
     def build(self):
