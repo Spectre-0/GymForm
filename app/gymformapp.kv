@@ -1,0 +1,87 @@
+<SelectWorkoutScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        Label:
+            text: 'Select Workout'
+            size_hint: (1, 0.1)
+            font_size: '40sp'
+            halign: 'center'
+            valign: 'middle'
+            text_size: self.width, None
+            color: 0, 0, 0, 1
+            bold: True
+        
+        GridLayout:
+            cols: 2
+            spacing: (10, 5)  # column_spacing, row_spacing
+            padding: 10
+            size_hint: 1, 0.9  # Adjust the size_hint to accommodate the label at the top
+            row_force_default: True
+            col_force_default: True
+            row_default_height: 200  # Set the desired default row height
+            col_default_width: 200  # Set the desired default column width
+            halign: 'center'
+            valign: 'middle'
+
+
+        
+            ImageButton:
+                source: './images/dumbbell_curl.png'
+                on_press: root.go_to_workout(self)
+            ImageButton:
+                source: './images/dumbbell_shoulder_press.jpg'
+                on_press: root.go_to_workout(self)
+            ImageButton:
+                source: './images/dumbbell_bent_over_rows.png'
+                on_press: root.go_to_workout(self)
+            ImageButton:
+                source: './images/dumbbell_lateral_raise.png'
+                on_press: root.go_to_workout(self)
+            ImageButton:
+                source: './images/dumbbell_bench_press.png'
+                on_press: root.go_to_workout(self)
+            ImageButton:
+                source: './images/dumbbell_fly.png'
+                on_press: root.go_to_workout(self)
+<WorkoutDetailScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        Label: 
+            id: workout_label
+            text: "Workout: " + root.current_workout  
+            size_hint: (1, 0.1)
+            font_size: '24sp'
+            color: 0, 0, 0, 1
+            halign: 'center'
+            valign: 'middle'
+        Label:
+            text: "Good Reps count: " + str(root.good_form_count)
+            size_hint: (1, 0.1)
+            font_size: '20sp'
+            color: 0, 0, 0, 1
+            halign: 'center'
+            valign: 'middle'
+        Camera:
+            id: camera
+            index: 0
+            resolution: (640, 480)
+            play: True
+        Button:
+            id: analyze_button
+            text: 'Analyze'
+            size_hint: (1, 0.1)
+            on_press: root.toggle_analysis()
+        Button:
+            text: 'History'
+            size_hint: (1, 0.1)
+            on_press: root.view_history()
+        Button:
+            id: back_button
+            text: 'Back'
+            size_hint: (1, 0.1)
+            on_press: root.go_back()
+        Label:
+            id: critiques_label
+            text: 'Critiques will appear here'
+            size_hint: (1, 0.1)
+            color: 1, 0, 0, 1
