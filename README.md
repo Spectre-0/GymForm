@@ -1,6 +1,6 @@
 # GymForm
 
-GymForm is a mobile application designed to assist users in maintaining proper form during workouts. It uses computer vision and machine learning to analyze the user's posture and provide real-time feedback.
+GymForm is an app designed to assist users in maintaining proper form during workouts. It uses computer vision and machine learning to analyze the user's posture and provide real-time feedback.
 
 ## Features
 
