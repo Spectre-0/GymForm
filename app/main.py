@@ -43,8 +43,7 @@ def format_workout_name(name):
     # Converts snake_case to Title Case
     return ' '.join(word.capitalize() for word in name.split('_'))
 
-# Define screens for the application
-# Define screens for the application
+
 # Define screens for the application
 class SelectWorkoutScreen(Screen):
     def go_to_workout(self, instance):
@@ -145,9 +144,9 @@ class WorkoutDetailScreen(Screen):
 
                 # Check if enough time has passed or if the movement is significant
                 current_time = time.time()
-                if self.last_analysis_time is None or current_time - self.last_analysis_time >= 0.5:  # Adjust the delay (in seconds) as needed
+                if self.last_analysis_time is None or current_time - self.last_analysis_time >= 0.5:  
                     if self.last_landmarks is None or self.has_significant_movement(landmarks, self.last_landmarks):
-                        # Check which workout is selected and analyze accordingly
+                        # Check which workout is selected and analyze 
                         if self.current_workout == format_workout_name("dumbbell_shoulder_press"):
                             critique = self.analyze_shoulder_press(landmarks)
                             
