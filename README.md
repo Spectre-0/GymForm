@@ -17,12 +17,16 @@ Before you begin, ensure you have met the following requirements:
 
 - Python 3.8 or higher
 - Pip package manager
+- camera connected
+- (optional but recomend) conda enviroment or python venv
 
 ### Installation
 
-To install GymForm, follow these steps:
+To install and run GymForm, follow these steps:
 
 ```bash
 git https://github.com/Spectre-0/GymForm.git
-cd GymForm
+cd [PATH]/GymForm
 pip install -r requirements.txt
+cd [PATH]/GymForm/app
+python main.py
