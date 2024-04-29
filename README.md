@@ -6,7 +6,7 @@ GymForm is an app designed to assist users in maintaining proper form during wor
 
 - Real-time analysis of workout form
 - Historical data visualization of workout performance
-- Custom workout routines with form feedback
+- workout form feedback
 - Library of Exercises to analyse form
 
 ## Getting Started
