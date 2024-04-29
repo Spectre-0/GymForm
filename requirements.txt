@@ -17,7 +17,7 @@ kivy-deps.angle==0.3.3
 kivy-deps.glew==0.3.1
 kivy-deps.sdl2==0.6.0
 Kivy-Garden==0.1.5
-kivy-garden.matplotlib @ https://github.com/kivy-garden/matplotlib/archive/master.zip#sha256=eeef72e7f67185f2cf0502aafede047c297357fb2d1be28309d7534868d11391
+kivy-garden.matplotlib
 kiwisolver==1.4.5
 matplotlib==3.8.2
 mediapipe==0.10.9
