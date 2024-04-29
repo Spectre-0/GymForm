@@ -25,7 +25,7 @@ Before you begin, ensure you have met the following requirements:
 To install and run GymForm, follow these steps:
 
 ```bash
-git https://github.com/Spectre-0/GymForm.git
+git clone https://github.com/Spectre-0/GymForm.git
 cd [PATH]/GymForm
 pip install -r requirements.txt
 cd [PATH]/GymForm/app
