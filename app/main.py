@@ -58,6 +58,7 @@ class SelectWorkoutScreen(Screen):
 class WorkoutDetailScreen(Screen):
     current_workout = StringProperty('')  # Attribute to keep track of the current workout
     good_form_count = NumericProperty(0)  # Counter for "Good form" occurrences
+    good_form_cooldown = NumericProperty(0)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -135,6 +136,9 @@ class WorkoutDetailScreen(Screen):
         with open(file_path, 'w') as file:
             json.dump(data, file, indent=4)
 
+
+
+
     def analyze_form(self, dt):
         frame = self.frame_from_camera()
         if frame is not None:
@@ -174,7 +178,16 @@ class WorkoutDetailScreen(Screen):
                       
                         self.critiques_label.text = critique
                         if critique == "Good form!":
-                            self.good_form_count += 1
+                            current_time = time.time()
+                            # Check if the cooldown has passed
+                            if self.good_form_cooldown <= 0:
+                                self.good_form_count += 1
+                                # Set the cooldown period 
+                                self.good_form_cooldown = 0.2
+                            else:
+                                # Reduce the cooldown based on time passed
+                                time_passed = current_time - self.last_analysis_time
+                                self.good_form_cooldown = max(0, self.good_form_cooldown - time_passed)
                             print(self.current_workout)
       
                         self.last_analysis_time = current_time
@@ -203,20 +216,25 @@ class WorkoutDetailScreen(Screen):
 
     def analyze_shoulder_press(self, landmarks):
         # Check vertical alignment of wrists over shoulders at the top of the press
-        if not self.is_aligned_vertically(landmarks[12], landmarks[16]) or not self.is_aligned_vertically(landmarks[11], landmarks[15]):
+        # Adding a small range for alignment tolerance
+        if not (0.95 < self.is_aligned_vertically(landmarks[12], landmarks[16]) < 1.05) or \
+        not (0.95 < self.is_aligned_vertically(landmarks[11], landmarks[15]) < 1.05):
             return "Align your wrists directly over your shoulders."
 
         # Check if arms are fully extended without locking the elbows
+        # Providing a range for slight flexion to avoid locking
         right_arm_angle = self.calculate_angle(landmarks[11], landmarks[13], landmarks[15])
         left_arm_angle = self.calculate_angle(landmarks[12], landmarks[14], landmarks[16])
-        if right_arm_angle < 170 or right_arm_angle > 190:
-            return "Fully extend your right arm at the top of the press."
-        if left_arm_angle < 170 or left_arm_angle > 190:
-            return "Fully extend your left arm at the top of the press."
+        if not 160 < right_arm_angle < 190:
+            return "Fully extend your right arm at \n the top of the press \nwithout locking the elbow."
+        if not 160 < left_arm_angle < 190:
+            return "Fully extend your left arm at \nthe top of the press \nwithout locking the elbow."
 
         # Check torso position
-        if not self.is_torso_upright(landmarks[23], landmarks[11]) or not self.is_torso_upright(landmarks[24], landmarks[12]):
-            return "Keep your torso upright and avoid arching your back."
+        # A range is provided to allow for natural curvature of the spine
+        if not (0.9 < self.is_torso_upright(landmarks[23], landmarks[11]) < 1.1) or \
+        not (0.9 < self.is_torso_upright(landmarks[24], landmarks[12]) < 1.1):
+            return "Keep torso upright and avoid arching your back."
 
         return "Good form!"
 
@@ -265,6 +283,10 @@ class WorkoutDetailScreen(Screen):
             texture = self.frame_to_texture(frame)
             self.camera.texture = texture
 
+        if self.good_form_cooldown > 0:
+            self.good_form_cooldown -= dt
+            self.good_form_cooldown = max(0, self.good_form_cooldown)
+
     def go_back(self):
         # If analysis is active, stop it before going back
         if self.analysis_active:
@@ -273,7 +295,6 @@ class WorkoutDetailScreen(Screen):
 
 
     def calculate_angle(self, a, b, c):
-        # Here you can convert the landmark data to your required format, if necessary
         # shoulder, elbow, and wrist would be dictionaries with 'x', 'y', 'z' keys
         a = np.array([a['x'], a['y']])
         b = np.array([b['x'], b['y']])
@@ -300,23 +321,27 @@ class WorkoutDetailScreen(Screen):
         right_arm_angle = self.calculate_angle(landmarks[11], landmarks[13], landmarks[15])
         left_arm_angle = self.calculate_angle(landmarks[12], landmarks[14], landmarks[16])
         if right_arm_angle > 30 or left_arm_angle > 30:  # Adjust the angle threshold as needed
-            return "Engage your biceps more by curling the weight higher."
+            return "Engage your biceps more\n by curling the weight higher."
         
         return "Good form!"
 
     def analyze_bent_over_row(self, landmarks):
-        # Check if back is straight
-        if not self.is_back_straight(landmarks[11], landmarks[23]) or not self.is_back_straight(landmarks[12], landmarks[24]):
-            return "Keep your back straight throughout the movement."
-        
+        # Check if the back is parallel to the ground
+        spine_angle = self.calculate_angle(landmarks[11], landmarks[23], landmarks[25])
+        if spine_angle < 40 or spine_angle > 120:  
+            return "Keep your back\n parallel to the ground."
+
         # Check if elbows are tucked close to the body
-        if not self.is_close_to_body(landmarks[13], landmarks[11]) or not self.is_close_to_body(landmarks[14], landmarks[12]):
-            return "Tuck your elbows close to your body."
-        
-        # Check if bar is pulled to the lower chest
-        if not self.is_aligned_vertically(landmarks[15], landmarks[11]) or not self.is_aligned_vertically(landmarks[16], landmarks[12]):
-            return "Pull the bar to your lower chest."
-        
+        elbow_distance_to_body = abs(landmarks[13]['x'] - landmarks[11]['x'])
+        if elbow_distance_to_body > 0.1:  # Example threshold, may need adjustment
+            return "Tuck your elbows \ncloser to your body."
+
+        # Check if the bar is pulled to the waist, not the chest
+        bar_height = landmarks[15]['y']
+        waist_height = landmarks[23]['y']
+        if bar_height > waist_height:
+            return "Pull the bar to your waist."
+
         return "Good form!"
 
     def analyze_lateral_raise(self, landmarks):
@@ -332,55 +357,70 @@ class WorkoutDetailScreen(Screen):
         
         # Check if torso remains upright
         if not self.is_torso_upright(landmarks[23], landmarks[11]) or not self.is_torso_upright(landmarks[24], landmarks[12]):
-            return "Keep your torso upright throughout the movement."
+            return "Keep your torso upright \nthroughout the movement."
         
         return "Good form!"
 
     def analyze_bench_press(self, landmarks):
-        # Check if wrists are aligned over elbows and shoulders
-        if not self.is_aligned_vertically(landmarks[15], landmarks[13]) or not self.is_aligned_vertically(landmarks[16], landmarks[14]):
-            return "Keep your wrists aligned over your elbows and shoulders."
-        
-        # Check if bar touches the chest
-        if not self.is_aligned_vertically(landmarks[15], landmarks[11]) or not self.is_aligned_vertically(landmarks[16], landmarks[12]):
-            return "Lower the bar to touch your chest."
-        
-        # Check if elbows don't flare out too much
-        right_arm_angle = self.calculate_angle(landmarks[11], landmarks[13], landmarks[15])
-        left_arm_angle = self.calculate_angle(landmarks[12], landmarks[14], landmarks[16])
-        if right_arm_angle < 45 or right_arm_angle > 75 or left_arm_angle < 45 or left_arm_angle > 75:
-            return "Tuck your elbows closer to your body."
-        
+        # Check if the bar is at chest level, indicating the bottom of the lift
+        bar_at_chest_level = abs(landmarks[15]['y'] - landmarks[11]['y']) < 0.1  
+
+        # When the bar is at chest level, check for wrist and elbow alignment
+        if bar_at_chest_level:
+            wrist_elbow_alignment = self.is_aligned_vertically(landmarks[15], landmarks[13]) and self.is_aligned_vertically(landmarks[16], landmarks[14])
+            if not wrist_elbow_alignment:
+                return "Align your wrists \ndirectly above your elbows."
+
+            # Check if bar touches the chest lightly without bouncing
+            # Assuming landmarks[15] is the wrist and landmarks[11] is the chest
+            # You might need to adjust based on the height of the bar relative to the chest at the bottom of the lift
+            if bar_at_chest_level and abs(landmarks[15]['y'] - landmarks[11]['y']) > 0.05:  # Adjust for sensitivity of touch
+                return "Gently touch the bar to\n your chest without bouncing."
+
+        # Check for proper elbow angle throughout the lift to ensure the bar path is straight
+        right_elbow_angle = self.calculate_angle(landmarks[11], landmarks[13], landmarks[15])
+        left_elbow_angle = self.calculate_angle(landmarks[12], landmarks[14], landmarks[16])
+        # This checks for a straight bar path in the range of 75 to 105 degrees, which allows for some natural variation in form
+        if not bar_at_chest_level and not (75 < right_elbow_angle < 105 and 75 < left_elbow_angle < 105):
+            return "Maintain a straight bar \npath and a consistent elbow angle."
+
         return "Good form!"
 
     def analyze_dumbbell_fly(self, landmarks):
-        # Check if elbows maintain a slight bend
+        # Check if elbows maintain a slight bend consistently
         right_arm_angle = self.calculate_angle(landmarks[11], landmarks[13], landmarks[15])
         left_arm_angle = self.calculate_angle(landmarks[12], landmarks[14], landmarks[16])
-        if abs(right_arm_angle - left_arm_angle) > 10:  # Adjust the angle difference threshold as needed
-            return "Maintain a consistent slight bend in your elbows."
-        
-        # Check if dumbbells are lowered to chest level
-        if not self.is_aligned_vertically(landmarks[15], landmarks[11]) or not self.is_aligned_vertically(landmarks[16], landmarks[12]):
-            return "Lower the dumbbells to chest level."
-        
-        # Check if arms are brought together at the top
-        if not self.is_close_horizontally(landmarks[15], landmarks[16]):
-            return "Bring your arms together at the top of the movement."
-        
+        # Ensuring that the arms are not locked straight and have a slight bend
+        if right_arm_angle > 180 or right_arm_angle < 160 or left_arm_angle > 180 or left_arm_angle < 160:  # Adjust angles for a slight bend
+            return "Maintain a consistent slight \nbend in your elbows throughout the movement."
+
+        # Check if dumbbells are lowered to approximately chest level
+        # It's common for the arms to be slightly above or below chest level during the movement
+        # so a range is used instead of a strict point for comparison
+        chest_height = landmarks[11]['y']
+        right_dumbbell_height = landmarks[15]['y']
+        left_dumbbell_height = landmarks[16]['y']
+        if right_dumbbell_height - chest_height > 0.1 or left_dumbbell_height - chest_height > 0.1:  # Adjust threshold for sensitivity
+            return "Lower the dumbbells to \napproximately chest level."
+
+        # Check if arms are brought together at the top without clanging the dumbbells
+        # This can be checked by ensuring the dumbbells come close together but not necessarily touching
+        if abs(landmarks[15]['x'] - landmarks[16]['x']) > 0.1:  # Adjust for the distance you want to maintain between dumbbells
+            return "Bring your arms closer together \nat the top of the movement \nwithout clanging the dumbbells."
+
         return "Good form!"
 
     def is_close_to_body(self, elbow, shoulder):
-        return abs(elbow['x'] - shoulder['x']) < 0.1  # Adjust the threshold as needed
+        return abs(elbow['x'] - shoulder['x']) < 0.1   # threshold
 
     def is_aligned_horizontally(self, wrist, elbow):
-        return abs(wrist['x'] - elbow['x']) < 0.1  # Adjust the threshold as needed
+        return abs(wrist['x'] - elbow['x']) < 0.1  # threshold
 
     def is_back_straight(self, shoulder, hip):
-        return abs(shoulder['y'] - hip['y']) < 0.1  # Adjust the threshold as needed
+        return abs(shoulder['y'] - hip['y']) < 0.1   # threshold
 
     def is_close_horizontally(self, wrist_left, wrist_right):
-        return abs(wrist_left['x'] - wrist_right['x']) < 0.1  # Adjust the threshold as needed
+        return abs(wrist_left['x'] - wrist_right['x']) < 0.1   # threshold
     
     def go_to_workout(self, instance):
         workout_name = instance.source.split('/')[-1].split('.')[0]
@@ -443,7 +483,6 @@ class GymFormApp(App):
         # Set the background color for the entire app to light grey
         Window.clearcolor = (0.9, 0.9, 0.9, 1)  # RGB values for light grey
 
-        # Assuming you want a width of 360 pixels (you can change this to your desired width)
         width =430
         # The height is determined by the 9:16 aspect ratio
         height = int(width * (16 / 9))
